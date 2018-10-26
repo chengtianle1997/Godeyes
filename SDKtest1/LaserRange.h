@@ -50,6 +50,8 @@ typedef struct MPoint
 {
 	int x;
 	int y;
+	double cx;
+	double cy;
 	int bright;
 	int Pixnum;
 
