@@ -6,9 +6,17 @@
 #include "cvaux.h"
 #include "highgui.h"
 #include "cxcore.h"
+#include <opencv2/opencv.hpp>
+#include <process.h>
+#include "afxwin.h"
+#include "math.h"
+#include "cstdlib"
+
+#include "ImProcess.h"
+
 
 using namespace std;
-
+using namespace cv;
 
 
 class LaserRange
@@ -56,4 +64,20 @@ typedef struct MPoint
 	int Pixnum;
 
 } MPoint;
+
+//边缘测试算法1
+void getPeaker1(Mat matImage, MPoint *point);
+//Canny opencv 边缘检测
+void getcanny(Mat matImage, MPoint *point);
+//亚像素分析函数（待完善）
+void getdoublepixel(Mat matImage, MPoint *point);
+//基于double的误差标记函数
+void getErrorIdentifyDouble(Mat matImage, MPoint *point);
+
+//双精度平均值计算
+double average(int *x, int len);
+//误差标记函数
+void getErrorIdentifyInt(Mat matImage, MPoint *point);
+//被giveup的寻址method1
+void getDiff1test(Mat matImage, MPoint *point);
 
