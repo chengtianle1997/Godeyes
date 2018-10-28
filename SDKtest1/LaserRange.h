@@ -80,4 +80,6 @@ double average(int *x, int len);
 void getErrorIdentifyInt(Mat matImage, MPoint *point);
 //被giveup的寻址method1
 void getDiff1test(Mat matImage, MPoint *point);
+//张正友相机标定法
+void calibfirst(Mat matImage);
 
