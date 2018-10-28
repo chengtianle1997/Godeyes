@@ -71,6 +71,8 @@ void getPeaker1(Mat matImage, MPoint *point);
 void getcanny(Mat matImage, MPoint *point);
 //亚像素分析函数（待完善）
 void getdoublepixel(Mat matImage, MPoint *point);
+//基于double的带阈值误差标记函数
+void getErrorIdentifyDoubleW(Mat matImage, MPoint *point, double doorin);
 //基于double的误差标记函数
 void getErrorIdentifyDouble(Mat matImage, MPoint *point);
 
