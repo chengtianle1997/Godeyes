@@ -62,26 +62,11 @@ typedef struct MPoint
 	double cy;
 	int bright;
 	int Pixnum;
-
+	int xstart;
+	int xstop;
 } MPoint;
 
-//边缘测试算法1
-void getPeaker1(Mat matImage, MPoint *point);
-//Canny opencv 边缘检测
-void getcanny(Mat matImage, MPoint *point);
-//亚像素分析函数（待完善）
-void getdoublepixel(Mat matImage, MPoint *point);
-//基于double的带阈值误差标记函数
-void getErrorIdentifyDoubleW(Mat matImage, MPoint *point, double doorin);
-//基于double的误差标记函数
-void getErrorIdentifyDouble(Mat matImage, MPoint *point);
 
-//双精度平均值计算
-double average(int *x, int len);
-//误差标记函数
-void getErrorIdentifyInt(Mat matImage, MPoint *point);
-//被giveup的寻址method1
-void getDiff1test(Mat matImage, MPoint *point);
 //张正友相机标定法
 void calibfirst(Mat matImage);
 
