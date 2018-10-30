@@ -37,6 +37,8 @@ void getsobel(Mat matImage, MPoint *point);
 void getdoublepixel(Mat matImage, MPoint *point);
 //基于高斯拟合的亚像素中心线检测算法  
 void getGaussCenter(Mat matImage, MPoint *point, double maxError, double minError, int xRange);
+//X,Z矩阵的生成 //X矩阵 Z矩阵  数据点个数  输入GPoint
+int getXZmatrix(CvMat* X, CvMat* Z, int n, GPoint *gpoint);
 //f(n,x)用来返回x的n次方
 double f(int n, double x);
 //高斯主元法求解方程组

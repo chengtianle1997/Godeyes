@@ -17,6 +17,7 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 #include "EdgeDetection.h"
+#include "cmath"
 
 using namespace std;
 using namespace cv;
@@ -384,7 +385,8 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 	Mat cloneImage = matImage.clone();
 	Mat OrgnImage = matImage.clone();
 	//先运用canny检测得到初步中心线
-	int g_nCannyLowThreshold = 100;//canny检测低阈值
+	int g_nCannyLowThreshold = 80;//canny检测低阈值
+	int minCanny = 200;//canny平均点筛选
 	Mat tmpImage, dstImage;
 	blur(cloneImage, tmpImage, Size(3, 3));
 	Canny(tmpImage, dstImage, g_nCannyLowThreshold, g_nCannyLowThreshold * 3);
@@ -399,13 +401,13 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 	brightness = new int[Rows];
 	memset(brightness, 0, Rows);
 	int sum = 0;
-	double average = 0;
+	int average = 0;
 	getPeaker(matImage, brightness);
 	for (int j = 0; j < Rows; j++) {
 		uchar* data = dstImage.ptr<uchar>(j);
 		for (int i = 0; i < Cols; i++) {
 			PixelDataof = data[i];
-			if (PixelDataof > minError*brightness[j]) {
+			if (PixelDataof > minCanny) {//修改canny检测后的边缘阈值
 				x[px] = i;
 				px++;
 				sum = sum + i;
@@ -418,8 +420,8 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 		if (px) {
 			average = sum * 1.0 / px;
 		}
-		point[j].cx = average;
-		point[j].cy = j;
+		point[j].x = average;
+		point[j].y = j;
 		
 		average = 0;
 		sum = 0;
@@ -449,33 +451,103 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 			//cout << "condition2" << (PixelData < ((1 - maxError)*brightness[i]))<<endl;
 			//cout << "condition3" << (abs(j - point[i].x) < xRange) << endl;
 
-			if (PixelData > minError*brightness[i] && PixelData < ((1 - maxError)*brightness[i])&&(abs(j-point[i].cx)<xRange)) {
-					gpoint[j].x = j;
-					gpoint[j].brightness = PixelData;
-					Pixnum++;
+			if (PixelData > minError*brightness[i] && PixelData < ((1 - maxError)*brightness[i]) && (abs(j - point[i].x) < xRange)) {
+				gpoint[Pixnum].x = j;
+				gpoint[Pixnum].brightness = PixelData;
+				Pixnum++;
 			}
 		}
-		int n, m;
-		double *x, *y, *a;
-		n = Pixnum;//拟合数据点的个数
-		m = Pixnum; //拟合多项式的项数 m<=n
-		x = new double[n];
-		y = new double[n];
-		a = new double[m];
-		for (int i = 0; i < n; i++) {
-			x[i] = gpoint[i].x;
-			y[i] = gpoint[i].brightness;
-		}  
-		MinDoubleFit(x, y, n, a, m + 1);
-		cout << "拟合多项式的系数为" << endl;
-		for (int i = 0; i <= m; i++) {
-			cout << a[i] << '    ';
+		if (Pixnum >= 3) {
+			int n = Pixnum;
+			CvMat* X = cvCreateMat(n, 3, CV_64FC1);
+			CvMat* Z = cvCreateMat(n, 1, CV_64FC1);
+			//CvMat* XT = cvCreateMat(3, n, CV_64FC1);
+			CvMat* B = cvCreateMat(3, 1, CV_64FC1);
+			CvMat* SA = cvCreateMat(3, 3, CV_64FC1);
+			CvMat* SAN = cvCreateMat(3, 3, CV_64FC1);
+			CvMat* SC = cvCreateMat(3, n, CV_64FC1);
+			getXZmatrix(X, Z, n, gpoint);
+			/*for (int i = 0; i < n; i++) {
+				for (int j = 0; j < 3; j++) {
+					cout << cvmGet(X, i, j) << "\t";
+				}
+				cout << endl;
+			}*/
+			/*cvTranspose(X, XT);
+			for (int i = 0; i < 3; i++) {
+				for (int j = 0; j < n; j++) {
+					cout << cvmGet(XT, i, j) << "\t";
+				}
+				cout << endl;
+			}*/
+			cvGEMM(X, X, 1, NULL, 0, SA, CV_GEMM_A_T);
+			/*for (int i = 0; i < 3; i++) {
+				for (int j = 0; j < 3; j++) {
+					cout << cvmGet(SA, i, j) << "\t";
+				}
+				cout << endl;
+			}*/
+			cvInvert(SA, SAN, CV_LU);  //高斯消去法
+			/*for (int i = 0; i < 3; i++) {
+				for (int j = 0; j < 3; j++) {
+					cout << cvmGet(SAN, i, j) << "\t";
+				}
+				cout << endl;
+			}*/
+			cvGEMM(SAN, X, 1, NULL, 0, SC, CV_GEMM_B_T);
+			/*for (int i = 0; i < 3; i++) {
+				for (int j = 0; j < n; j++) {
+					cout << cvmGet(SC, i, j) << "\t";
+				}
+				cout << endl;
+			}*/
+			/*for (int i = 0; i < n; i++) {
+				for (int j = 0; j < 1; j++) {
+					cout << cvmGet(Z, i, j) << "\t";
+				}
+				cout << endl;
+			}*/
+			cvGEMM(SC, Z, 1, NULL, 0, B, 0);
+			/*for (int i = 0; i < 3; i++) {
+				cout << cvmGet(B, i, 0)<<"\t";
+			}
+			cout << endl;*/
+			point[i].cx = (-cvmGet(B, 1, 0))*1.0 / (2 * cvmGet(B, 2, 0));
+			point[i].bright = exp(cvmGet(B, 0, 0) - cvmGet(B, 1, 0)*cvmGet(B, 1, 0) / (4 * cvmGet(B, 2, 0)));
 		}
-		cout << endl;
-		cout << "平方误差为：" << endl;
-		cout << ErrorSqrt(x, y, n, a, m + 1) << endl;
+		else {
+			point[i].cx = 0;
+			point[i].bright = 0;
+		}
+		point[i].cy = i;
 	}
-	delete brightness;
+	
+	//基于double的有阈值误差标记函数
+	getErrorIdentifyDoubleW(OrgnImage, point, 0.14);
+
+
+
+	//	int n, m;
+	//	double *x, *y, *a;
+	//	n = pixnum;//拟合数据点的个数
+	//	m = pixnum; //拟合多项式的项数 m<=n
+	//	x = new double[n];
+	//	y = new double[n];
+	//	a = new double[m];
+	//	for (int i = 0; i < n; i++) {
+	//		x[i] = gpoint[i].x;
+	//		y[i] = gpoint[i].brightness;
+	//	}  
+	//	mindoublefit(x, y, n, a, m + 1);
+	//	cout << "拟合多项式的系数为" << endl;
+	//	for (int i = 0; i <= m; i++) {
+	//		cout << a[i] << '    ';
+	//	}
+	//	cout << endl;
+	//	cout << "平方误差为：" << endl;
+	//	cout << errorsqrt(x, y, n, a, m + 1) << endl;
+	
+	//delete brightness;
 }
 
 //f(n,x)用来返回x的n次方
@@ -489,6 +561,64 @@ double f(int n, double x) {
 		return y;
 	}
 }
+
+//X,Z矩阵的生成 //X矩阵 Z矩阵  数据点个数  输入GPoint
+int getXZmatrix(CvMat* X, CvMat* Z, int n,GPoint *gpoint) {
+	//n个数据点 以n行形式存入
+	for (int i = 0; i < n; i++) {
+		//顺序存入 1  x  x^2
+		for (int j = 0; j <3; j++) {
+			cvmSet(X,i,j, pow(gpoint[i].x, j));
+			//cout << j << endl;
+		}
+		//y存入Z矩阵
+		cvmSet(Z,i,0,log(gpoint[i].brightness));   
+	}
+	return 1;
+}
+
+//数据交换
+void swap(double &a, double &b) {
+	int temp = a;
+	a = b;
+	b = temp;
+}
+
+//矩阵的转置 x -> xt
+int Tmatrix(double**x,double**xt,int n) {
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < 3; j++) {
+			xt[i][j] = x[i][j];
+		}
+	}
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < i; j++) {
+			swap(xt[j][i], xt[i][j]);
+		}
+	}
+	return 1;
+}
+//矩阵的乘法
+int matrixmul(double **a, double **b, double **c, int ar,int ac,int br,int bc) {
+	int m;//a的列数 b的行数
+	if (ac == br) {
+		m = ac;
+	}
+	else
+		return 0;
+	for (int i = 0; i < ar; i++) {
+		for (int j = 0; j < bc; j++) {
+			c[i][j] = 0;
+			for (int k = 0; k < ac; k++) {
+				c[i][j] += a[i][k] * b[k][j];
+			}
+		}
+	}
+	return 1;
+}
+
+//矩阵求逆
+
 
 //高斯主元法求解方程组
 int GaussMajorEquation(double **a, int n, double *b, double *p, double dt) {
