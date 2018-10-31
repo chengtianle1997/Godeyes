@@ -161,6 +161,7 @@
     <ClInclude Include="ImProcess.h" />
     <ClInclude Include="LaserRange.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Timer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="EdgeDetection.cpp" />

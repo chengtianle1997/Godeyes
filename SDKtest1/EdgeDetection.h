@@ -40,7 +40,7 @@ void getGaussCenter(Mat matImage, MPoint *point, double maxError, double minErro
 //X,Z矩阵的生成 //X矩阵 Z矩阵  数据点个数  输入GPoint
 int getXZmatrix(CvMat* X, CvMat* Z, int n, GPoint *gpoint);
 //f(n,x)用来返回x的n次方
-double f(int n, double x);
+double f(double x, int n);
 //高斯主元法求解方程组
 int GaussMajorEquation(double **a, int n, double *b, double *p, double dt);
 //动态生成数组
@@ -50,11 +50,9 @@ void MinDoubleFit(double x[], double y[], int n, double a[], int m);
 //计算最小二乘解的平方误差
 double ErrorSqrt(double x[], double y[], int n, double a[], int m);
 //基于double的带阈值误差标记函数
-void getErrorIdentifyDoubleW(Mat matImage, MPoint *point, double doorin);
+void getErrorIdentifyDoubleW(Mat matImage, MPoint *point, double doorin,int eHeight);
 //基于double的误差标记函数
 void getErrorIdentifyDouble(Mat matImage, MPoint *point);
-//基于double的有阈值误差标记函数
-void getErrorIdentifyDoubleW(Mat matImage, MPoint *point, double doorin);
 //双精度平均值计算
 double average(int *x, int len);
 //误差标记函数

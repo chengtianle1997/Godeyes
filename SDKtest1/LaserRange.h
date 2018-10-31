@@ -64,6 +64,7 @@ typedef struct MPoint
 	int Pixnum;
 	int xstart;
 	int xstop;
+	int errorup;
 } MPoint;
 
 

@@ -67,12 +67,13 @@ void getPeaker1(Mat matImage, MPoint *point) {
 		point[j].Pixnum = getpeak;
 		point[j].x = (x1 + x2) / 2;
 		point[j].y = j;
+		point[j].bright = MaxPixel;
 		stepon = false;
 		stepoff = false;
 		getpeak = 0;
 		x1 = 0;
 		x2 = 0;
-		cout << "(" << point[j].x << "," << point[j].y << "):" << MaxPixel << "    sum:" << point[j].Pixnum << endl;
+		//cout << "(" << point[j].x << "," << point[j].y << "):" << MaxPixel << "    sum:" << point[j].Pixnum << endl;
 	}
 }
 
@@ -207,7 +208,7 @@ void getsobel(Mat matImage, MPoint *point) {
 		x_sum = 0;
 		n_point = 0;
 	}
-	getErrorIdentifyDoubleW(cloneImage, point, 0.5);
+	getErrorIdentifyDoubleW(cloneImage, point, 0.5,0);
 	cloneImage.release();
 }
 
@@ -377,58 +378,82 @@ void getdoublepixel(Mat matImage, MPoint *point) {
 	//cvReleaseMat(&pDirection);
 }
 
-//Zernike矩亚像素分析
-//
+
 
 //基于高斯拟合的亚像素中心线检测算法  
 void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,int xRange) {
 	Mat cloneImage = matImage.clone();
 	Mat OrgnImage = matImage.clone();
 	//先运用canny检测得到初步中心线
-	int g_nCannyLowThreshold = 80;//canny检测低阈值
-	int minCanny = 200;//canny平均点筛选
-	Mat tmpImage, dstImage;
-	blur(cloneImage, tmpImage, Size(3, 3));
-	Canny(tmpImage, dstImage, g_nCannyLowThreshold, g_nCannyLowThreshold * 3);
-	namedWindow("canny function");
-	imshow("canny function", dstImage);
+	//int g_nCannyLowThreshold = 80;//canny检测低阈值
+	//int minCanny = 200;//canny平均点筛选
+	//Mat tmpImage, dstImage;
+	//blur(cloneImage, tmpImage, Size(3, 3));
+	//Canny(tmpImage, dstImage, g_nCannyLowThreshold, g_nCannyLowThreshold * 3);
+	//namedWindow("canny function");
+	//imshow("canny function", dstImage);
 	int Rows = cloneImage.rows;
 	int Cols = cloneImage.cols*cloneImage.channels();
-	int x[100];
-	int px = 0;
-	int PixelDataof;
 	int *brightness;
 	brightness = new int[Rows];
 	memset(brightness, 0, Rows);
-	int sum = 0;
-	int average = 0;
-	getPeaker(matImage, brightness);
-	for (int j = 0; j < Rows; j++) {
-		uchar* data = dstImage.ptr<uchar>(j);
-		for (int i = 0; i < Cols; i++) {
-			PixelDataof = data[i];
-			if (PixelDataof > minCanny) {//修改canny检测后的边缘阈值
-				x[px] = i;
-				px++;
-				sum = sum + i;
-				if (px > 100) {
-					cout << "there are too many canny points" << endl;
-				}
+	//getPeaker1(matImage, point);
+	for (int i = 0; i < Rows; i++)
+	{
+		uchar* data = matImage.ptr<uchar>(i);
+		int MaxPixel = data[0];
+		int MaxX(0);
+		for (int j = 1; j < Cols; j++)
+		{
+			if (data[j] > MaxPixel) {
+				MaxPixel = data[j];
+				MaxX = j;
 			}
 		}
-		//逐行计算平均点
-		if (px) {
-			average = sum * 1.0 / px;
-		}
-		point[j].x = average;
-		point[j].y = j;
-		
-		average = 0;
-		sum = 0;
-		px = 0;
-		memset(x, 0, px);
-		//cout << "(" << point[j].cx << "," << point[j].cy << ")" << endl;
+		point[i].y = i;
+		point[i].x = MaxX;
+		//point[i].bright = MaxPixel;
+		brightness[i] = MaxPixel;
 	}
+	/*for (int i = 0; i < Rows; i++)
+	{
+		brightness[i] = point[i].bright;
+	}*/
+	//int x[100];
+	//int px = 0; 
+
+	
+	//int sum = 0;
+	//int average = 0;
+	////getPeaker(matImage, brightness);
+	//for (int j = 0; j < Rows; j++) {
+	//	uchar* data = dstImage.ptr<uchar>(j);
+	//	uchar* odata = matImage.ptr<uchar>(j);
+	//	for (int i = 0; i < Cols; i++) {
+	//		int PixelDataof = data[i];
+	//		if (PixelDataof > minCanny) {//修改canny检测后的边缘阈值
+	//			x[px] = i;
+	//			px++;
+	//			sum = sum + i;
+	//			if (px > 100) {
+	//				cout << "there are too many canny points" << endl;
+	//			}
+	//		}
+	//	}
+	//	//逐行计算平均点
+	//	if (px) {
+	//		average = sum * 1.0 / px;
+	//	}
+	//	point[j].x = average;
+	//	point[j].y = j;
+	//	brightness[j] = odata[average];
+	//	
+	//	average = 0;
+	//	sum = 0;
+	//	px = 0;
+	//	memset(x, 0, px);
+	//	//cout << "(" << point[j].cx << "," << point[j].cy << ")" << endl;
+	//}
 	
 	//读取point中的值
 //	int Cols = cloneImage.cols;//x
@@ -456,6 +481,8 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 				gpoint[Pixnum].brightness = PixelData;
 				Pixnum++;
 			}
+			if ((j - point[i].x) > xRange)
+				break;
 		}
 		if (Pixnum >= 3) {
 			int n = Pixnum;
@@ -467,51 +494,52 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 			CvMat* SAN = cvCreateMat(3, 3, CV_64FC1);
 			CvMat* SC = cvCreateMat(3, n, CV_64FC1);
 			getXZmatrix(X, Z, n, gpoint);
-			/*for (int i = 0; i < n; i++) {
-				for (int j = 0; j < 3; j++) {
-					cout << cvmGet(X, i, j) << "\t";
-				}
-				cout << endl;
-			}*/
-			/*cvTranspose(X, XT);
-			for (int i = 0; i < 3; i++) {
-				for (int j = 0; j < n; j++) {
-					cout << cvmGet(XT, i, j) << "\t";
-				}
-				cout << endl;
-			}*/
+		//	/*for (int i = 0; i < n; i++) {
+		//		for (int j = 0; j < 3; j++) {
+		//			cout << cvmGet(X, i, j) << "\t";
+		//		}
+		//		cout << endl;
+		//	}*/
+		//	
+		//	for (int i = 0; i < 3; i++) {
+		//		for (int j = 0; j < n; j++) {
+		//			cout << cvmGet(XT, i, j) << "\t";
+		//		}
+		//		cout << endl;
+		//	}*/
 			cvGEMM(X, X, 1, NULL, 0, SA, CV_GEMM_A_T);
-			/*for (int i = 0; i < 3; i++) {
-				for (int j = 0; j < 3; j++) {
-					cout << cvmGet(SA, i, j) << "\t";
-				}
-				cout << endl;
-			}*/
+		//	/*for (int i = 0; i < 3; i++) {
+		//		for (int j = 0; j < 3; j++) {
+		//			cout << cvmGet(SA, i, j) << "\t";
+		//		}
+		//		cout << endl;
+		//	}*/
 			cvInvert(SA, SAN, CV_LU);  //高斯消去法
-			/*for (int i = 0; i < 3; i++) {
-				for (int j = 0; j < 3; j++) {
-					cout << cvmGet(SAN, i, j) << "\t";
-				}
-				cout << endl;
-			}*/
+		//	/*for (int i = 0; i < 3; i++) {
+		//		for (int j = 0; j < 3; j++) {
+		//			cout << cvmGet(SAN, i, j) << "\t";
+		//		}
+		//		cout << endl;
+		//	}*/
 			cvGEMM(SAN, X, 1, NULL, 0, SC, CV_GEMM_B_T);
-			/*for (int i = 0; i < 3; i++) {
-				for (int j = 0; j < n; j++) {
-					cout << cvmGet(SC, i, j) << "\t";
-				}
-				cout << endl;
-			}*/
-			/*for (int i = 0; i < n; i++) {
-				for (int j = 0; j < 1; j++) {
-					cout << cvmGet(Z, i, j) << "\t";
-				}
-				cout << endl;
-			}*/
+		//	/*for (int i = 0; i < 3; i++) {
+		//		for (int j = 0; j < n; j++) {
+		//			cout << cvmGet(SC, i, j) << "\t";
+		//		}
+		//		cout << endl;
+		//	}*/
+		//	/*for (int i = 0; i < n; i++) {
+		//		for (int j = 0; j < 1; j++) {
+		//			cout << cvmGet(Z, i, j) << "\t";
+		//		}
+		//		cout << endl;
+		//	}*/
 			cvGEMM(SC, Z, 1, NULL, 0, B, 0);
-			/*for (int i = 0; i < 3; i++) {
-				cout << cvmGet(B, i, 0)<<"\t";
-			}
-			cout << endl;*/
+		//	/*for (int i = 0; i < 3; i++) {
+		//		cout << cvmGet(B, i, 0)<<"\t";
+		//	}
+		//	cout << endl;*/
+		
 			point[i].cx = (-cvmGet(B, 1, 0))*1.0 / (2 * cvmGet(B, 2, 0));
 			point[i].bright = exp(cvmGet(B, 0, 0) - cvmGet(B, 1, 0)*cvmGet(B, 1, 0) / (4 * cvmGet(B, 2, 0)));
 		}
@@ -520,38 +548,17 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 			point[i].bright = 0;
 		}
 		point[i].cy = i;
+		
 	}
 	
 	//基于double的有阈值误差标记函数
-	getErrorIdentifyDoubleW(OrgnImage, point, 0.14);
+	//getErrorIdentifyDoubleW(OrgnImage, point, 0.15,0);
 
 
-
-	//	int n, m;
-	//	double *x, *y, *a;
-	//	n = pixnum;//拟合数据点的个数
-	//	m = pixnum; //拟合多项式的项数 m<=n
-	//	x = new double[n];
-	//	y = new double[n];
-	//	a = new double[m];
-	//	for (int i = 0; i < n; i++) {
-	//		x[i] = gpoint[i].x;
-	//		y[i] = gpoint[i].brightness;
-	//	}  
-	//	mindoublefit(x, y, n, a, m + 1);
-	//	cout << "拟合多项式的系数为" << endl;
-	//	for (int i = 0; i <= m; i++) {
-	//		cout << a[i] << '    ';
-	//	}
-	//	cout << endl;
-	//	cout << "平方误差为：" << endl;
-	//	cout << errorsqrt(x, y, n, a, m + 1) << endl;
-	
-	//delete brightness;
 }
 
 //f(n,x)用来返回x的n次方
-double f(int n, double x) {
+double f( double x,int n) {
 	double y = 1.0;
 	if (n == 0) return 1.0;
 	else {
@@ -562,193 +569,50 @@ double f(int n, double x) {
 	}
 }
 
+double fx(int x , int n) {
+	int y;
+	if (n == 0)
+	{
+		y = 1;
+	}
+	else if (n == 1) {
+		y = x;
+	}
+	else if (n == 2) {
+		y = x * x;
+	}
+	return y;
+}
+
 //X,Z矩阵的生成 //X矩阵 Z矩阵  数据点个数  输入GPoint
 int getXZmatrix(CvMat* X, CvMat* Z, int n,GPoint *gpoint) {
 	//n个数据点 以n行形式存入
 	for (int i = 0; i < n; i++) {
 		//顺序存入 1  x  x^2
+		//double* xData = (double*)(X->data.ptr + i * X->step);
+		//double* zData = (double*)(X->data.ptr + i * X->step);
 		for (int j = 0; j <3; j++) {
-			cvmSet(X,i,j, pow(gpoint[i].x, j));
+			cvmSet(X,i,j, fx(gpoint[i].x, j));
+			//xData[j] = fx(gpoint[i].x, j);
 			//cout << j << endl;
 		}
 		//y存入Z矩阵
 		cvmSet(Z,i,0,log(gpoint[i].brightness));   
+		//zData[0] = log(gpoint[i].brightness);
 	}
 	return 1;
-}
-
-//数据交换
-void swap(double &a, double &b) {
-	int temp = a;
-	a = b;
-	b = temp;
-}
-
-//矩阵的转置 x -> xt
-int Tmatrix(double**x,double**xt,int n) {
-	for (int i = 0; i < n; i++) {
-		for (int j = 0; j < 3; j++) {
-			xt[i][j] = x[i][j];
-		}
-	}
-	for (int i = 0; i < n; i++) {
-		for (int j = 0; j < i; j++) {
-			swap(xt[j][i], xt[i][j]);
-		}
-	}
-	return 1;
-}
-//矩阵的乘法
-int matrixmul(double **a, double **b, double **c, int ar,int ac,int br,int bc) {
-	int m;//a的列数 b的行数
-	if (ac == br) {
-		m = ac;
-	}
-	else
-		return 0;
-	for (int i = 0; i < ar; i++) {
-		for (int j = 0; j < bc; j++) {
-			c[i][j] = 0;
-			for (int k = 0; k < ac; k++) {
-				c[i][j] += a[i][k] * b[k][j];
-			}
-		}
-	}
-	return 1;
-}
-
-//矩阵求逆
-
-
-//高斯主元法求解方程组
-int GaussMajorEquation(double **a, int n, double *b, double *p, double dt) {
-	int i, j, k, l;
-	double c, t;
-	for (k = 1; k <= n; k++) {
-		c = 0.0;
-		for (i = k; i <= n; i++) {
-			if (fabs(a[i - 1][k - 1] > fabs(c))) {
-				c = a[i - 1][k - 1];
-				l = i;
-			}
-			if (fabs(c) <= dt)
-				return 0;
-			if (l != k) {
-				for (j = k; j <= n; j++) {
-					t = a[k - 1][j - 1];
-					a[k - 1][j - 1] = a[l - 1][j - 1];
-					a[l - 1][j - 1] = t;
-				}
-				t = b[k - 1];
-				b[k - 1] = b[l - 1];
-				b[l - 1] = t;
-			}
-			c = 1 / c;
-			for (j = k + 1; j <= n; j++) {
-				a[k - 1][j - 1] = a[k - 1][j - 1] * c;
-				for (i = k + 1; i <= n; i++) {
-					a[i - 1][j - 1] -= a[i - 1][k - 1] * a[k - 1][j - 1];
-				}
-			}
-			b[k - 1] *= c;
-			for (i = k + 1; i <= n; i++) {
-				b[i - 1] -= b[k - 1] * a[i - 1][k - 1];
-			}
-
-			for (i = n; i >= 1; i--) {
-				for (j = i + 1; j <= n; j++) {
-					b[i - 1] -= b[j - 1] * a[i - 1][j - 1];
-				}
-			}
-			cout.precision(12);
-			for (i = 0; i < n; i++)
-				p[i] = b[i];
-		}
-	}
-}
-
-//动态生成数组
-double** create(int a, int b) {
-	double **p = new double* [a];
-	for (int i = 0; i < b; i++) {
-		p[i] = new double[b];
-	}
-	return p;
-}
-
-//最小二乘拟合//    m A矩阵的大小
-void MinDoubleFit(double x[], double y[], int n, double a[], int m) {
-	int i, j, k, l;
-	double **A, *B;
-	A = create(m, m);
-	B = new double[m];
-	for (i = 0; i < m; i++) {
-		for (j = 0; j < m; j++) {
-			A[i][j] = 0.0;
-		}
-	}
-	for (k = 0; k < m; k++) {
-		for (l = 0; l < m; l++) {
-			for (j = 0; j < n; j++) {
-				A[k][l] += f(k, x[j])*f(l, x[j]);
-			}
-		}
-	}//计算法方程组系数矩阵A[k][l]
-	cout << "法方程组的系数矩阵为：" << endl;
-	for (i = 0; i < m; i++) {
-		for (j = 0, k = 1; j < m; j++, k++) {
-			cout << A[i][j] << '\t';
-			if (k&&k%m == 0) {
-				cout << endl;
-			}
-		}
-	}
-	for (i = 0; i < m; i++) {
-		B[i] = 0.0;
-	}
-	for (i = 0; i < m; i++) {
-		for (j = 0; j < n; j++) {
-			B[i] += y[i] * f(i, x[j]);
-		}
-	}
-	//记录B[n]
-	for (i = 0; i < m; i++) {
-		cout << "B[" << i << "]=" << B[i] << endl;
-	}
-	GaussMajorEquation(A,m,B,a,1e-6);
-	delete[]A;
-	delete B;
-}
-
-//计算最小二乘解的平方误差
-double ErrorSqrt(double x[], double y[], int n, double a[], int m) {
-	double deta, q = 0.0, r = 0.0;
-	int i, j;
-	double *B;
-	B = new double[m];
-	for (i = 0; i < m; i++)
-		B[i] = 0.0;
-	for (i = 0; i < m; i++)
-		for (j = 0; j < n; j++)
-			B[i] += y[j] * f(i, x[j]);
-	for (i = 0; i < n; i++)
-		q += y[i] * y[i];
-	for (j = 0; j < m; j++)
-		r += a[j] * B[j];
-	deta = fabs(q - r);
-	return deta;
-	delete B;
 }
 
 
 //基于double的有阈值误差标记函数
-void getErrorIdentifyDoubleW(Mat matImage, MPoint *point, double doorin) {
+void getErrorIdentifyDoubleW(Mat matImage, MPoint *point, double doorin, int eHeight) {
 	int Rows = matImage.rows;//y
 	//int Cols = matImage.cols;
 	int Cols = matImage.cols*matImage.channels();//x
 	//int div = 64;
 	double error;
 	for (int j = 0; j < Rows; j++) {
+		//point[j].errorup = point[j].cx - point[j - 1].cx;
 		if (abs(point[j].cx - point[j - 1].cx) > doorin) {
 			line(matImage, Point((point[j].cx - 30), point[j].cy), Point((point[j].cx + 30), point[j].cy), Scalar(255, 100, 100), 2, 8, 0);
 			line(matImage, Point(point[j].cx, point[j].cy - 30), Point(point[j].cx, point[j].cy + 30), Scalar(255, 100, 100), 2, 8, 0);
