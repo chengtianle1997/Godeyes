@@ -18,9 +18,13 @@
 #include "opencv2/calib3d/calib3d.hpp"
 #include "EdgeDetection.h"
 #include "cmath"
+#include "omp.h"
+#include "Timer.h"
 
 using namespace std;
 using namespace cv;
+
+stop_watch watch;
 
 void getPeaker1(Mat matImage, MPoint *point) {
 	int Rows = matImage.rows;//y
@@ -381,9 +385,9 @@ void getdoublepixel(Mat matImage, MPoint *point) {
 
 
 //基于高斯拟合的亚像素中心线检测算法  
-void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,int xRange) {
+void getGaussCenter(Mat matImage, MPoint *point, double maxError, double minError, int xRange) {
 	Mat cloneImage = matImage.clone();
-	Mat OrgnImage = matImage.clone();
+	//Mat OrgnImage = matImage.clone();
 	//先运用canny检测得到初步中心线
 	//int g_nCannyLowThreshold = 80;//canny检测低阈值
 	//int minCanny = 200;//canny平均点筛选
@@ -398,6 +402,7 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 	brightness = new int[Rows];
 	memset(brightness, 0, Rows);
 	//getPeaker1(matImage, point);
+#pragma omp parallel for num_threads(4)
 	for (int i = 0; i < Rows; i++)
 	{
 		uchar* data = matImage.ptr<uchar>(i);
@@ -422,7 +427,7 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 	//int x[100];
 	//int px = 0; 
 
-	
+
 	//int sum = 0;
 	//int average = 0;
 	////getPeaker(matImage, brightness);
@@ -454,19 +459,24 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 	//	memset(x, 0, px);
 	//	//cout << "(" << point[j].cx << "," << point[j].cy << ")" << endl;
 	//}
-	
+
 	//读取point中的值
 //	int Cols = cloneImage.cols;//x
 //	int Rows = cloneImage.rows;//y
+
 	
-	int PixelData;
-	int Pixnum = 0;
+
 	
-	GPoint *gpoint;
-	gpoint = new GPoint[Rows];
 	//逐行存储所有点的x坐标和亮度值以便分析 在此只存入高斯点
+#pragma omp parallel for num_threads(4)
 	for (int i = 0; i < Rows; i++) {
+		int PixelData;
+		int Pixnum = 0;
+		GPoint *gpoint;
+		gpoint = new GPoint[Rows];
 		Pixnum = 0;
+		//高斯点选取 
+		//watch.restart();
 		uchar* data = matImage.ptr<uchar>(i);
 		for (int j = 0; j < Cols; j++) {
 			PixelData = data[j];
@@ -478,12 +488,14 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 
 			if (PixelData > minError*brightness[i] && PixelData < ((1 - maxError)*brightness[i]) && (abs(j - point[i].x) < xRange)) {
 				gpoint[Pixnum].x = j;
-				gpoint[Pixnum].brightness = PixelData;
+				gpoint[Pixnum].brightness = PixelData;+
 				Pixnum++;
 			}
 			if ((j - point[i].x) > xRange)
 				break;
 		}
+		//watch.stop();
+		//cout << "高斯点选取耗时:" << watch.elapsed() << endl;
 		if (Pixnum >= 3) {
 			int n = Pixnum;
 			CvMat* X = cvCreateMat(n, 3, CV_64FC1);
@@ -493,66 +505,96 @@ void getGaussCenter(Mat matImage, MPoint *point,double maxError,double minError,
 			CvMat* SA = cvCreateMat(3, 3, CV_64FC1);
 			CvMat* SAN = cvCreateMat(3, 3, CV_64FC1);
 			CvMat* SC = cvCreateMat(3, n, CV_64FC1);
+			//获取矩阵
+			//watch.restart();
 			getXZmatrix(X, Z, n, gpoint);
-		//	/*for (int i = 0; i < n; i++) {
-		//		for (int j = 0; j < 3; j++) {
-		//			cout << cvmGet(X, i, j) << "\t";
-		//		}
-		//		cout << endl;
-		//	}*/
-		//	
-		//	for (int i = 0; i < 3; i++) {
-		//		for (int j = 0; j < n; j++) {
-		//			cout << cvmGet(XT, i, j) << "\t";
-		//		}
-		//		cout << endl;
-		//	}*/
+			//watch.stop();
+			//cout << "矩阵获取耗时:" << watch.elapsed() << endl;
+			//	/*for (int i = 0; i < n; i++) {
+			//		for (int j = 0; j < 3; j++) {
+			//			cout << cvmGet(X, i, j) << "\t";
+			//		}
+			//		cout << endl;
+			//	}*/
+			//	
+			//	for (int i = 0; i < 3; i++) {
+			//		for (int j = 0; j < n; j++) {
+			//			cout << cvmGet(XT, i, j) << "\t";
+			//		}
+			//		cout << endl;
+			//	}*/
+			//乘法1
+			//watch.restart();
 			cvGEMM(X, X, 1, NULL, 0, SA, CV_GEMM_A_T);
-		//	/*for (int i = 0; i < 3; i++) {
-		//		for (int j = 0; j < 3; j++) {
-		//			cout << cvmGet(SA, i, j) << "\t";
-		//		}
-		//		cout << endl;
-		//	}*/
+			//watch.stop();
+			//cout << "乘法1耗时:" << watch.elapsed() << endl;
+			//for (int i = 0; i < 3; i++) {
+			//		for (int j = 0; j < 3; j++) {
+			//			cout << cvmGet(SA, i, j) << "\t";
+			//		}
+			//		cout << endl;
+			//	}*/
+			//矩阵求逆
+			//watch.restart();
 			cvInvert(SA, SAN, CV_LU);  //高斯消去法
-		//	/*for (int i = 0; i < 3; i++) {
-		//		for (int j = 0; j < 3; j++) {
-		//			cout << cvmGet(SAN, i, j) << "\t";
-		//		}
-		//		cout << endl;
-		//	}*/
+			//watch.stop();
+			//cout << "矩阵求逆耗时:" << watch.elapsed() << endl;
+			/*for (int i = 0; i < 3; i++) {
+				for (int j = 0; j < 3; j++) {
+
+					cout << cvmGet(SAN, i, j) << "\t";
+				}
+				cout << endl;
+			}*/
+			//矩阵乘法2
+			//watch.restart();
 			cvGEMM(SAN, X, 1, NULL, 0, SC, CV_GEMM_B_T);
-		//	/*for (int i = 0; i < 3; i++) {
-		//		for (int j = 0; j < n; j++) {
-		//			cout << cvmGet(SC, i, j) << "\t";
-		//		}
-		//		cout << endl;
-		//	}*/
-		//	/*for (int i = 0; i < n; i++) {
-		//		for (int j = 0; j < 1; j++) {
-		//			cout << cvmGet(Z, i, j) << "\t";
-		//		}
-		//		cout << endl;
-		//	}*/
+			//watch.stop();
+			//cout << "矩阵乘法2耗时:" << watch.elapsed() << endl;
+			//	/*for (int i = 0; i < 3; i++) {
+			//		for (int j = 0; j < n; j++) {
+			//			cout << cvmGet(SC, i, j) << "\t";
+			//		}
+			//		cout << endl;
+			//	}*/
+			//	/*for (int i = 0; i < n; i++) {
+			//		for (int j = 0; j < 1; j++) {
+			//			cout << cvmGet(Z, i, j) << "\t";
+			//		}
+			//		cout << endl;
+			//	}*/
+			//矩阵乘法3
+			//watch.restart();
 			cvGEMM(SC, Z, 1, NULL, 0, B, 0);
-		//	/*for (int i = 0; i < 3; i++) {
-		//		cout << cvmGet(B, i, 0)<<"\t";
-		//	}
-		//	cout << endl;*/
-		
+			//watch.stop();
+			//cout << "矩阵乘法3耗时:" << watch.elapsed() << endl;
+			//	/*for (int i = 0; i < 3; i++) {
+			//		cout << cvmGet(B, i, 0)<<"\t";
+			//	}
+			//	cout << endl;*/
+			//结果计算
+			//watch.restart();
 			point[i].cx = (-cvmGet(B, 1, 0))*1.0 / (2 * cvmGet(B, 2, 0));
 			point[i].bright = exp(cvmGet(B, 0, 0) - cvmGet(B, 1, 0)*cvmGet(B, 1, 0) / (4 * cvmGet(B, 2, 0)));
+			//watch.stop();
+			//cout << "结果计算耗时:" << watch.elapsed() << endl;
+			cvReleaseMat(&X);
+			cvReleaseMat(&Z);
+			cvReleaseMat(&B);
+			cvReleaseMat(&SA);
+			cvReleaseMat(&SAN);
+			cvReleaseMat(&SC);
 		}
 		else {
 			point[i].cx = 0;
 			point[i].bright = 0;
 		}
 		point[i].cy = i;
-		
+		delete []gpoint;
 	}
-	
+
 	//基于double的有阈值误差标记函数
-	//getErrorIdentifyDoubleW(OrgnImage, point, 0.15,0);
+	//getErrorIdentifyDoubleW(cloneImage, point, 0.15,0);
 
 
 }

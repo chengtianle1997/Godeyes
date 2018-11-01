@@ -5,6 +5,10 @@
   <PropertyGroup>
     <_PropertySheetDisplayName>OpenCV&amp;MindVision</_PropertySheetDisplayName>
   </PropertyGroup>
-  <ItemDefinitionGroup />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <OpenMPSupport>true</OpenMPSupport>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemGroup />
 </Project>
