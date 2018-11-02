@@ -399,10 +399,11 @@ void getGaussCenter(Mat matImage, MPoint *point, double maxError, double minErro
 	int Rows = cloneImage.rows;
 	int Cols = cloneImage.cols*cloneImage.channels();
 	int *brightness;
+	int threads = 2;//调用线程数
 	brightness = new int[Rows];
 	memset(brightness, 0, Rows);
 	//getPeaker1(matImage, point);
-#pragma omp parallel for num_threads(4)
+#pragma omp parallel for num_threads(threads)
 	for (int i = 0; i < Rows; i++)
 	{
 		uchar* data = matImage.ptr<uchar>(i);
@@ -468,7 +469,7 @@ void getGaussCenter(Mat matImage, MPoint *point, double maxError, double minErro
 
 	
 	//逐行存储所有点的x坐标和亮度值以便分析 在此只存入高斯点
-#pragma omp parallel for num_threads(4)
+#pragma omp parallel for num_threads(threads)
 	for (int i = 0; i < Rows; i++) {
 		int PixelData;
 		int Pixnum = 0;
