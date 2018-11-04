@@ -489,7 +489,7 @@ void getGaussCenter(Mat matImage, MPoint *point, double maxError, double minErro
 
 			if (PixelData > minError*brightness[i] && PixelData < ((1 - maxError)*brightness[i]) && (abs(j - point[i].x) < xRange)) {
 				gpoint[Pixnum].x = j;
-				gpoint[Pixnum].brightness = PixelData;+
+				gpoint[Pixnum].brightness = PixelData;
 				Pixnum++;
 			}
 			if ((j - point[i].x) > xRange)
@@ -597,6 +597,228 @@ void getGaussCenter(Mat matImage, MPoint *point, double maxError, double minErro
 	//基于double的有阈值误差标记函数
 	//getErrorIdentifyDoubleW(cloneImage, point, 0.15,0);
 
+
+}
+
+void getGaussCenter_hori(Mat matImage, MPoint *point, double maxError, double minError, int yRange)
+{
+	Mat cloneImage = matImage.clone();          //复制原图这里!
+	int Rows = cloneImage.rows;
+	int Cols = cloneImage.cols*cloneImage.channels();
+
+	int *brightness;
+	int threads = 8;		//调用线程数
+	brightness = new int[Cols];
+	memset(brightness, 0, Cols);
+#pragma omp parallel for num_threads(threads)
+	for (int j = 0; j < Cols; j++)
+	{
+		int MaxPixel = matImage.ptr<uchar>(0)[j];
+		//cout << MaxPixel << endl;
+		int MaxY(0);
+		for (int i = 1; i < Rows; i++)
+		{
+			int tempPixel = matImage.ptr<uchar>(i)[j];
+			//cout << tempPixel<< endl;
+			if (tempPixel > MaxPixel)
+			{
+				MaxPixel = tempPixel;
+				MaxY = i;
+			}
+
+		}
+		point[j].x = j;
+		point[j].y = MaxY;
+		brightness[j] = MaxPixel;
+		//cout << "(" << j << "," << MaxY << "):" << MaxPixel << endl;
+	}
+	/*完成：point中是每列最大像素位置信息，索引为列位置 ； brightness中是本列最大像素值，索引为列位置*/
+
+#pragma omp parallel for num_threads(threads)
+	for (int j = 0; j < Cols; j++)
+	{
+		int PixelData;
+		int Pixnum = 0;
+		GPoint *gpoint;
+		gpoint = new GPoint[Cols];
+		Pixnum = 0;
+		for (int i = 0; i < Rows; i++)
+		{
+			PixelData = matImage.ptr<uchar>(i)[j];
+
+			if (PixelData > minError*brightness[j] && PixelData < ((1 - maxError)*brightness[j]) && (abs(i - point[j].y) < yRange))
+			{
+				gpoint[Pixnum].x = i;
+				gpoint[Pixnum].brightness = PixelData;
+				Pixnum++;
+			}
+			if ((i - point[j].y) > yRange)
+				break;
+		}
+		/*完成高斯点选取，gpoint索引为高斯点个数，存入y及像素*/
+
+		if (Pixnum >= 3)
+		{
+			int n = Pixnum;
+			CvMat *X = cvCreateMat(n, 3, CV_64FC1);
+			CvMat *Z = cvCreateMat(n, 1, CV_64FC1);
+			CvMat *B = cvCreateMat(3, 1, CV_64FC1);
+			CvMat *SA = cvCreateMat(3, 3, CV_64FC1);
+			CvMat *SAN = cvCreateMat(3, 3, CV_64FC1);
+			CvMat *SC = cvCreateMat(3, n, CV_64FC1);
+
+			getXZmatrix(X, Z, n, gpoint);
+			cvGEMM(X, X, 1, NULL, 0, SA, CV_GEMM_A_T);
+			cvInvert(SA, SAN, CV_LU);
+			cvGEMM(SAN, X, 1, NULL, 0, SC, CV_GEMM_B_T);
+			cvGEMM(SC, Z, 1, NULL, 0, B, 0);
+			point[j].cy = (-cvmGet(B, 1, 0))*1.0 / (2 * cvmGet(B, 2, 0));
+			point[j].bright = exp(cvmGet(B, 0, 0) - cvmGet(B, 1, 0)*cvmGet(B, 1, 0) / (4 * cvmGet(B, 2, 0)));
+
+			//cout << "(" << j << "," << point[j].cy << ")" << endl;
+			cvReleaseMat(&X);
+			cvReleaseMat(&Z);
+			cvReleaseMat(&B);
+			cvReleaseMat(&SA);
+			cvReleaseMat(&SAN);
+			cvReleaseMat(&SC);
+		}
+		else {
+			point[j].cy = 0;
+			point[j].bright = 0;       //改canny
+		}
+
+		point[j].cx = j;
+		delete[]gpoint;
+		
+	}
+	//getErrorIdentifyDoubleW_hori(cloneImage, point, 0.15, 0);
+}
+
+
+
+void getErrorIdentifyDoubleW_hori(Mat matImage, MPoint *point, double doorin, int eHeight)
+{
+	int Rows = matImage.rows;
+	int Cols = matImage.cols*matImage.channels();
+	double error;
+	for (int j = 1; j < Cols; j++)
+	{
+		if (abs(point[j].cy - point[j - 1].cy) > doorin)
+		{
+			line(matImage, Point(point[j].cx, point[j].cy - 30), Point(point[j].cx, point[j].cy + 30), Scalar(255, 100, 100), 2, 8, 0);
+			line(matImage, Point(point[j].cx - 30, point[j].cy), Point(point[j].cx + 30, point[j].cy), Scalar(255, 100, 100), 2, 8, 0);
+			error = point[j].cy - point[j - 1].cy;
+			ostringstream oss;
+			oss << error;
+			string texterror = oss.str();
+			putText(matImage, texterror, Point(point[j].cx, point[j].cy + 40), 2, 0.5, Scalar(255, 100, 100), 1, 8, 0);
+		}
+		namedWindow("error identification");
+		imshow("error identification", matImage);
+	}
+}
+
+void  getGaussCenter_horiColOnce(Mat matImage, MPoint *point, double maxError, double minError, int yRange,int Colonce) {
+	Mat cloneImage = matImage.clone();          //复制原图这里!
+	int Rows = cloneImage.rows;
+	int Cols = cloneImage.cols*cloneImage.channels();
+
+	//int *brightness;
+	int threads = 8;		//调用线程数
+	//brightness = new int[Cols];
+	//memset(brightness, 0, Cols);
+	
+	//每Colonce列数据转置后存入二维数组
+#pragma omp parallel for num_threads(threads)
+	for (int k = 0; k < Cols / Colonce; k++) {
+		int** array_ = new int*[Colonce];
+		for (int i = 0; i < Colonce; i++)
+			array_[i] = new int[Rows];
+		for (int j = 0; j < Rows; j++) {
+			uchar* data = matImage.ptr<uchar>(j);
+			//逐行分Colonce列存入
+			for (int i = 0; i < Colonce; i++) {
+				array_[i][j] = data[k*Colonce+i];
+				//cout << "(" << k*Colonce + i << "," <<j << "):" << array_[i][j] << endl;
+			}
+		}
+		//取每列最大值及位置
+		for (int i = 0; i < Colonce; i++) {
+			int MaxPixel = array_[i][0];
+			int MaxY = 0;
+			for (int j = 1; j < Rows; j++) {
+				if (array_[i][j] > MaxPixel) {
+					MaxPixel = array_[i][j];
+					MaxY = j;
+				}
+			}
+			point[k*Colonce + i].x = k * Colonce + i;
+			point[k*Colonce + i].y = MaxY;
+			point[k*Colonce + i].bright = MaxPixel;
+			//cout<< "(" << point[k*Colonce + i].x << "," << point[k*Colonce + i].y << "):"<< point[k*Colonce + i].bright << endl;
+		}
+		//高斯点筛选
+		for (int i = 0; i < Colonce; i++) {
+			int Pixnum = 0;
+			GPoint *gpoint;
+			gpoint = new GPoint[Rows];
+			for (int j = 0; j < Rows; j++) {
+				if ((array_[i][j] > minError*point[k*Colonce + i].bright)
+					&& (array_[i][j] < (1 - maxError)*point[k*Colonce + i].bright)
+					&& (abs(j - point[k*Colonce + i].y) < yRange))
+				{
+					gpoint[Pixnum].x = k * Colonce + i;
+					gpoint[Pixnum].brightness = array_[i][j];
+					Pixnum++;
+					//cout << "(" << gpoint[Pixnum].x << "," << gpoint[Pixnum].brightness << ")" << endl;
+				}
+				if ((j - point[k*Colonce + i].y) > yRange)
+					break;
+			}
+		
+
+			//矩阵运算
+			if (Pixnum >= 3) {
+				int n = Pixnum;
+				CvMat *X = cvCreateMat(n, 3, CV_64FC1);
+				CvMat *Z = cvCreateMat(n, 1, CV_64FC1);
+				CvMat *B = cvCreateMat(3, 1, CV_64FC1);
+				CvMat *SA = cvCreateMat(3, 3, CV_64FC1);
+				CvMat *SAN = cvCreateMat(3, 3, CV_64FC1);
+				CvMat *SC = cvCreateMat(3, n, CV_64FC1);
+				getXZmatrix(X, Z, n,gpoint);
+				cvGEMM(X, X, 1, NULL, 0, SA, CV_GEMM_A_T);
+				cvInvert(SA, SAN, CV_LU);
+				cvGEMM(SAN, X, 1, NULL, 0, SC, CV_GEMM_B_T);
+				cvGEMM(SC, Z, 1, NULL, 0, B, 0);
+				point[k*Colonce + i].cy = (-cvmGet(B, 1, 0))*1.0 / (2 * cvmGet(B, 2, 0));
+				point[k*Colonce + i].bright= exp(cvmGet(B, 0, 0) - cvmGet(B, 1, 0)*cvmGet(B, 1, 0) / (4 * cvmGet(B, 2, 0)));
+				cvReleaseMat(&X);
+				cvReleaseMat(&Z);
+				cvReleaseMat(&B);
+				cvReleaseMat(&SA);
+				cvReleaseMat(&SAN);
+				cvReleaseMat(&SC);
+			}
+			//否则执行简单算法
+			else {
+				point[k*Colonce + i].cy = 0;
+				point[k*Colonce + i].bright = 0;
+			}
+			point[k*Colonce + i].cx = k * Colonce + i;
+			delete[]gpoint;
+			
+		}
+		for (int i = 0; i < Colonce; i++) {
+			delete[] array_[i];
+		}
+	    
+		delete[] array_;
+		
+	}
+	
+	//getErrorIdentifyDoubleW_hori(cloneImage, point,0.15,0);
 
 }
 

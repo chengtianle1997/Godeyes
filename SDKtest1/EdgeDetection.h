@@ -37,6 +37,8 @@ void getsobel(Mat matImage, MPoint *point);
 void getdoublepixel(Mat matImage, MPoint *point);
 //基于高斯拟合的亚像素中心线检测算法  
 void getGaussCenter(Mat matImage, MPoint *point, double maxError, double minError, int xRange);
+void getGaussCenter_hori(Mat matImage, MPoint *point, double maxError, double minError, int yRange);//横线
+void  getGaussCenter_horiColOnce(Mat matImage, MPoint *point, double maxError, double minError, int yRange, int Colonce);//横线ColOnce
 //X,Z矩阵的生成 //X矩阵 Z矩阵  数据点个数  输入GPoint
 int getXZmatrix(CvMat* X, CvMat* Z, int n, GPoint *gpoint);
 //f(n,x)用来返回x的n次方
@@ -51,6 +53,7 @@ void MinDoubleFit(double x[], double y[], int n, double a[], int m);
 double ErrorSqrt(double x[], double y[], int n, double a[], int m);
 //基于double的带阈值误差标记函数
 void getErrorIdentifyDoubleW(Mat matImage, MPoint *point, double doorin,int eHeight);
+void getErrorIdentifyDoubleW_hori(Mat matImage, MPoint *point, double doorin, int eHeight);//横线
 //基于double的误差标记函数
 void getErrorIdentifyDouble(Mat matImage, MPoint *point);
 //双精度平均值计算
