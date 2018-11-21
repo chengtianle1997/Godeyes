@@ -20,6 +20,8 @@
 #include "cmath"
 #include "omp.h"
 #include "Timer.h"
+#include "cuda.h"
+#include "cuda_runtime.h"
 
 using namespace std;
 using namespace cv;
@@ -479,7 +481,7 @@ void getGaussCenter(Mat matImage, MPoint *point, double maxError, double minErro
 		//高斯点选取 
 		//watch.restart();
 		uchar* data = matImage.ptr<uchar>(i);
-		for (int j = 0; j < Cols; j++) {
+		for (int j = point[i].x-xRange; j<=point[i].x + xRange; j++) {
 			PixelData = data[j];
 			//cout << PixelData << endl;
 			//minerror和maxerror条件筛选高斯点  //后期在此处考虑xRange
@@ -487,7 +489,7 @@ void getGaussCenter(Mat matImage, MPoint *point, double maxError, double minErro
 			//cout << "condition2" << (PixelData < ((1 - maxError)*brightness[i]))<<endl;
 			//cout << "condition3" << (abs(j - point[i].x) < xRange) << endl;
 
-			if (PixelData > minError*brightness[i] && PixelData < ((1 - maxError)*brightness[i]) && (abs(j - point[i].x) < xRange)) {
+			if (PixelData > minError*brightness[i] && PixelData < ((1 - maxError)*brightness[i])) {
 				gpoint[Pixnum].x = j;
 				gpoint[Pixnum].brightness = PixelData;
 				Pixnum++;

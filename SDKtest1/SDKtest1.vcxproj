@@ -72,6 +72,7 @@
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\CUDA 9.2.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -164,6 +165,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CudaTest.h" />
     <ClInclude Include="EdgeDetection.h" />
     <ClInclude Include="ImProcess.h" />
     <ClInclude Include="LaserRange.h" />
@@ -171,6 +173,7 @@
     <ClInclude Include="Timer.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CudaTest.cpp" />
     <ClCompile Include="EdgeDetection.cpp" />
     <ClCompile Include="ImProcess.cpp" />
     <ClCompile Include="pch.cpp">
